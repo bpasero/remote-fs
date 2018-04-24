@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 namespace Promisify {
 
-    function handleResult<T>(resolve: (result: T) => void, reject: (error: Error) => void, error: Error, result: T): void {
+    function handleResult<T>(resolve: (result: T) => void, reject: (error: Error) => void, error: Error | null, result: T): void {
         if (error) {
             reject(error);
         } else {
@@ -33,6 +33,18 @@ namespace Promisify {
             fs.stat(path, (error, stat) => handleResult(resolve, reject, error, stat));
         });
     }
+
+    export function readfile(path: string): Promise<Buffer> {
+        return new Promise<Buffer>((resolve, reject) => {
+            fs.readFile(path, (error, buffer) => handleResult(resolve, reject, error, buffer));
+        });
+    }
+
+    export function exists(path: string): Promise<boolean> {
+        return new Promise<boolean>((resolve, reject) => {
+            fs.exists(path, (exists) => handleResult(resolve, reject, null, exists));
+        });
+    }
 }
 
 class DateiFileSystemProvider implements vscode.FileSystemProvider {
@@ -48,27 +60,29 @@ class DateiFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     stat(uri: vscode.Uri, options: {}, token: vscode.CancellationToken): vscode.FileStat | Thenable<vscode.FileStat> {
-        return this._stat(uri.fsPath, options, token);
+        return this._stat(uri.fsPath, token);
     }
 
-    async _stat(path: string, options: {}, token: vscode.CancellationToken): Promise<vscode.FileStat> {
+    async _stat(path: string, token: vscode.CancellationToken): Promise<vscode.FileStat> {
         return new FileStat(await Promisify.stat(path));
     }
 
     readFile(uri: vscode.Uri, options: vscode.FileOptions, token: vscode.CancellationToken): Uint8Array | Thenable<Uint8Array> {
-        throw new Error("Method not implemented.");
+        return Promisify.readfile(uri.fsPath);
     }
 
     readDirectory(uri: vscode.Uri, options: {}, token: vscode.CancellationToken): Thenable<any[]> {
-        return this._readDirectory(uri, options, token);
+        return this._readDirectory(uri, token);
     }
 
-    async _readDirectory(uri: vscode.Uri, options: {}, token: vscode.CancellationToken): Promise<vscode.FileStat[]> {
+    async _readDirectory(uri: vscode.Uri, token: vscode.CancellationToken): Promise<[string, vscode.FileStat][]> {
         const children = await Promisify.readdir(uri.fsPath);
 
-        const stats: vscode.FileStat[] = [];
+        const stats: [string, vscode.FileStat][] = [];
         for (let i = 0; i < children.length; i++) {
-            stats.push(await this._stat(path.join(uri.fsPath, children[i]), {}, token));
+            const child = children[i];
+            const stat = await this._stat(path.join(uri.fsPath, child), token);
+            stats.push([child, stat]);
         }
 
         return Promise.resolve(stats);
@@ -91,12 +105,20 @@ class DateiFileSystemProvider implements vscode.FileSystemProvider {
     }
 
     watch(uri: vscode.Uri, options: { recursive?: boolean | undefined; excludes?: string[] | undefined; }): vscode.Disposable {
-        throw new Error("Method not implemented.");
+        const watcher = fs.watch(uri.fsPath, { recursive: options.recursive }, async (event: string, filename: string | Buffer) => {
+            const filepath = path.join(uri.fsPath, filename.toString());
+
+            this._onDidChangeFile.fire([{
+                type: event === 'change' ? vscode.FileChangeType.Changed : await Promisify.exists(filepath) ? vscode.FileChangeType.Created : vscode.FileChangeType.Deleted,
+                uri: uri.with({ path: filepath })
+            } as vscode.FileChangeEvent]);
+        });
+
+        return { dispose: () => watcher.close() };
     }
 }
 
-export function deactivate() {
-}
+export function deactivate() { }
 
 export class FileStat implements vscode.FileStat {
 
