@@ -13,7 +13,8 @@
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}",
                 "--user-data-dir",
-                "/Users/bpasero/Desktop/testweek"
+                "/Users/bpasero/Desktop/testweek",
+                "${workspaceFolder}/test.code-workspace"
             ],
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"
