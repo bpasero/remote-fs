@@ -35,7 +35,7 @@ class DateiFileSystemProvider implements vscode.FileSystemProvider {
         return _.readfile(uri.fsPath);
     }
 
-    readDirectory(uri: vscode.Uri, options: {}, token: vscode.CancellationToken): Thenable<any[]> {
+    readDirectory(uri: vscode.Uri, options: {}, token: vscode.CancellationToken): Thenable<[string, vscode.FileStat][]> {
         return this._readDirectory(uri, token);
     }
 
