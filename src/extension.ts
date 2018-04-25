@@ -102,7 +102,11 @@ class DateiFileSystemProvider implements vscode.FileSystemProvider {
     async _rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: vscode.FileOptions, token: vscode.CancellationToken): Promise<vscode.FileStat> {
         const exists = await _.exists(newUri.fsPath);
         if (exists) {
-            throw vscode.FileSystemError.FileExists();
+            if (options.exclusive) {
+                throw vscode.FileSystemError.FileExists();
+            } else {
+                await _.rmrf(newUri.fsPath);
+            }
         }
 
         _.checkCancellation(token);
