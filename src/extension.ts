@@ -141,6 +141,8 @@ class DateiFileSystemProvider implements vscode.FileSystemProvider {
 
         return { dispose: () => watcher.close() };
     }
+
+    // TODO can implement a fast copy() method with node.js 8.x new fs.copy method
 }
 
 export function deactivate() { }
@@ -244,18 +246,26 @@ namespace _ {
 
 export class FileStat implements vscode.FileStat {
 
-    isFile: boolean | undefined;
-    isDirectory: boolean | undefined;
-    isSymbolicLink: boolean | undefined;
-    size: number;
-    mtime: number;
+    constructor(private fsStat: fs.Stats) { }
 
-    constructor(fsStat: fs.Stats) {
-        this.isFile = fsStat.isFile();
-        this.isDirectory = fsStat.isDirectory();
-        this.isSymbolicLink = fsStat.isSymbolicLink();
-        this.size = fsStat.size;
-        this.mtime = fsStat.mtime.getTime();
+    get isFile(): boolean | undefined {
+        return this.fsStat.isFile();
+    }
+
+    get isDirectory(): boolean | undefined {
+        return this.fsStat.isDirectory();
+    }
+
+    get isSymbolicLink(): boolean | undefined {
+        return this.fsStat.isSymbolicLink();
+    }
+
+    get size(): number {
+        return this.fsStat.size;
+    }
+
+    get mtime(): number {
+        return this.fsStat.mtime.getTime();
     }
 }
 
